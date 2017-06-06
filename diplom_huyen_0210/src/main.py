@@ -27,33 +27,33 @@ from io import StringIO
 class Window(QMainWindow):
     def __init__(self, *args):
         super(Window, self).__init__(*args)
-        self.setWindowTitle('Hashtag Application')
+        self.setWindowTitle('Выявление трендов на основе анализа хештегов Твиттер')
         self.setWindowIcon(QIcon("./icons/twitterlogo.png"))# Set Icon of Window
         self.resize(900, 600)
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
         # A statusbar is a widget that is used for displaying status information.
-        self.statusBar().showMessage("Ready")  # Statusbar
+        self.statusBar().showMessage("Готово")  # Statusbar
         self.initmMain_UI()
         self.initMenu()
 
     def initMenu(self):
         # Create Menubar
         #  Add "Open File" Action
-        openAction = QAction(QIcon('./icons/openfile.jpg'), '&Open File', self)
+        openAction = QAction(QIcon('./icons/openfile.jpg'), '&Открыть файл', self)
         openAction.setShortcut('Ctrl+O')
-        openAction.setStatusTip('Open application')
+        openAction.setStatusTip('Открыть приложение')
         # Connect object "openAction" to function "file_open"
         openAction.triggered.connect(self.get_data_from_file)
         #  Add "Exit" Action
-        exitAction = QAction(QIcon('./icons/exit.png'), '&Exit', self)
-        exitAction.setShortcut('Ctrl+Q')
-        exitAction.setStatusTip('Exit application')
+        exitAction = QAction(QIcon('./icons/exit.png'), '&Закрыть приложение', self)
+        exitAction.setShortcut('Ctrl+W')
+        exitAction.setStatusTip('Закрыть приложение')
         # Connect object "exitAction" to function "closeEvent"
         # Create status bar and add actions to menubar
         self.statusBar()
         menubar = self.menuBar()
-        fileMenu = menubar.addMenu('&File')
+        fileMenu = menubar.addMenu('&Файл')
         fileMenu.addAction(openAction)
         fileMenu.addAction(exitAction)
 
@@ -69,9 +69,9 @@ class Window(QMainWindow):
         self.toolbar = NavigationToolbar(self.canvas, self)
 
         # Add labels into Gui
-        self.hashtag_label = QLabel('Hashtag(#)')
-        self.start_time_label = QLabel('Time Start')
-        self.end_time_label = QLabel('Time End')
+        self.hashtag_label = QLabel('Хештег(#)')
+        self.start_time_label = QLabel('Время начала')
+        self.end_time_label = QLabel('Время окончания')
 
         # Add line edit into Gui
         self.hashtag_input = QLineEdit()
@@ -85,7 +85,7 @@ class Window(QMainWindow):
 
         self.end_time_input.setDateTime(QtCore.QDateTime.currentDateTime())
         # Buttion Get Informations
-        self.getInforBtn = QPushButton('Get Informations')
+        self.getInforBtn = QPushButton('Получить информацию')
         # Arrange item of Gui
         # layout 1: row 1 include label "Hashtag(#)" and QlineEdit hashtag input
         layout1 = QHBoxLayout()
@@ -131,16 +131,19 @@ class Window(QMainWindow):
     # Work with file
     def get_data_from_file(self):
         try:
-            file_path, _ = QFileDialog.getOpenFileName(self, "Open file", "",
-                                                       "All Files (*);;CSV Files (*.csv)")
+            file_path, _ = QFileDialog.getOpenFileName(self, "Открыть файл", "",
+                                                       "All Files (*);;CSV файлы (*.csv)")
             if file_path:
+                print (file_path)
                 file_name = os.path.basename(file_path)
                 self.df = pd.read_csv(file_name)
                 self.time_list = self.df.created_at.unique().tolist()
                 self.analyze_data()
                 self.plot(file_name[:-15])
+                self.statusBar().showMessage("Визуализация данных файла о #%s" % file_name[:-15], 2000)
+
         except  Exception:
-            self.statusBar().showMessage('Exception: %s' % sys.exc_info()[0], 2000)
+            self.statusBar().showMessage('Exception: %s' % sys.exc_info()[0])
 
     def analyze_data(self):
         # create new dataFrame. Create into it 1 column "Time", pull list "time_list" into its column
@@ -158,9 +161,19 @@ class Window(QMainWindow):
         self.df_filter.index = self.df_filter['DateTime']
         self.ts = self.df_filter['Count']
         self.df_grouped = self.ts.resample('10Min').sum()
+        # self.df_grouped = self.ts.resample('60Min').sum()
         self.df_grouped = self.df_grouped.fillna(0)
-        self.moving_avg = self.df_grouped.rolling(window=10).mean()
+        self.moving_avg = self.df_grouped.rolling(window=6).mean()
+        print("blue")
+        self.df_grouped.to_csv('grouped.csv')
+        print(self.df_grouped.head(12))
+        print(self.df_grouped.ix[self.df_grouped.index.min(), 'DateTime'])
+        print(self.df_grouped.ix[self.df_grouped.index.max(), 'DateTime'])
+        # print("red")
+        # print(self.moving_avg.head(12))
 
+
+        # self.moving_avg = self.df_grouped.rolling(window=12).mean()
     def plot(self, hashtag):
         try:
             # instead of ax.hold(False)
@@ -168,22 +181,29 @@ class Window(QMainWindow):
             # create an axis
             ax = self.figure.add_subplot(111)
             # discards the old graph
-            ax.set_title('Trend and Count of #' + hashtag)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Count')
+            ax.set_title('Визуализация тренды хештеги #' + hashtag)
+            ax.set_xlabel('Время')
+            ax.set_ylabel('Количество')
             plt.xticks(rotation=15)
-            ax.plot(self.df_grouped, color='blue', marker='o', markersize=3, label='Origanal line')
-            ax.plot(self.moving_avg, color='red', label='Trend line')
+            ax.plot(self.df_grouped, color='blue', marker='o', markersize=3, label='Количество хештеги линии')
+            ax.plot(self.moving_avg, color='red', label='Тренды хештеги линии')
+            # print("blue")
+            # print(self.df_grouped.head())
+            # print("red")
+            # print(self.moving_avg.head())
+
+            # plt.gcf().autofmt_xdate()
             ax.legend()
+
             # refresh canvas
             self.canvas.draw()
-            self.statusBar().showMessage("Ready")
+            self.statusBar().showMessage("Готово")
         except  Exception:
             self.statusBar().showMessage('Exception: %s' % sys.exc_info()[0], 2000)
 
     # Close application
     def closeEvent(self, event):
-        reply = QMessageBox.question(self, 'Message', 'Are you sure to quit', QMessageBox.Yes | QMessageBox.No,
+        reply = QMessageBox.question(self, 'Сообщение', 'Вы хотите выйти?', QMessageBox.Yes | QMessageBox.No,
                                      QMessageBox.No)
         if reply == QMessageBox.Yes:
             event.accept()
@@ -195,19 +215,19 @@ class Window(QMainWindow):
             start_day = self.start_time_input.date().toString('yyyy-MM-dd')
             end_day = self.end_time_input.date().toString('yyyy-MM-dd')
             if (hashtag_input == ''):
-                QMessageBox.information(self, 'Message', 'No Hashtag input!')
+                QMessageBox.information(self, 'Сообщение', 'Вводите хештег, пожалуйста!')
             elif (start_day >= end_day):
-                QMessageBox.information(self, 'Message', 'Wrong time input!')
+                QMessageBox.information(self, 'Сообщение', 'Неправильный формат времени!')
             elif ((self.end_time_input.date().toPyDate() - self.start_time_input.date().toPyDate()).days > 7):
-                QMessageBox.information(self, 'Message', 'Wrong time input!')
+                QMessageBox.information(self, 'Сообщение', 'Неправильный формат времени!')
             elif (end_day > datetime.date.today().strftime("%Y-%m-%d")):
-                QMessageBox.information(self, 'Message', 'Wrong time input!')
+                QMessageBox.information(self, 'Сообщение', 'Неправильный формат времени!')
             elif (len(hashtag_input) > 140):
-                QMessageBox.information(self, 'Message', 'Limited to under 140 characters')
+                QMessageBox.information(self, 'Сообщение', 'Ограничено до 140 символов')
             elif (' ' in hashtag_input):
-                QMessageBox.information(self, 'Message', 'Hashtag do not support spaces')
+                QMessageBox.information(self, 'Сообщение', 'Хештег не поддерживает " "')
             elif any(char in (set(string.punctuation.replace("_", ""))) for char in hashtag_input):
-                QMessageBox.information(self, 'Message', 'Hashtag include letters, number')
+                QMessageBox.information(self, 'Сообщение', 'Хэштег включает в себя букв, цифры')
             else:
                 # # ************************************************************************************************************************
                 API_KEY = "vuuHtQehJVLkfQEL7pUxOX4yW"
@@ -215,13 +235,15 @@ class Window(QMainWindow):
                 auth = tweepy.AppAuthHandler(API_KEY, API_SECRET)
                 api = tweepy.API(auth, wait_on_rate_limit=True,wait_on_rate_limit_notify=True)
                 if (not api):
-                    self.statusBar().showMessage("Can't Authenticate")
-                    print ("Can't Authenticate")
+                    self.statusBar().showMessage("Не удается аутентифицировать")
+                    print ("Не удается аутентифицировать")
                     sys.exit(-1)
-                searchQuery = '#'+hashtag_input+' since:'+start_day+' until:'+end_day  # this is what we're searching for google since:2016-10-10 until:2016-10-11
-                maxTweets = 8000 # Some arbitrary large number
+                searchQuery = '#' + hashtag_input + ' since:' + start_day + ' until:' + end_day
+                # this is what we're searching for hashtag_input since:start_day until:end_day
+                maxTweets = 10000000 # Some arbitrary large number
                 tweetsPerQry = 100  # this is the max the API permits
-                fName = hashtag_input+start_day[5:]+'_'+ end_day[5:]+'.csv' # We'll store the tweets in a text file.
+                fName = hashtag_input+start_day[5:]+'_'+ end_day[5:]+'.csv'
+                fNamePath = "./"+ fName# We'll store the tweets in a text file.
                 raw_data = []
                 # If results from a specific ID onwards are reqd, set since_id to that ID.
                 # else default to no lower limit, go as far back as API allows
@@ -230,9 +252,9 @@ class Window(QMainWindow):
                 # else default to no upper limit, start from the most recent tweet matching the search query.
                 max_id = -1
                 tweetCount = 0
-                self.statusBar().showMessage("Downloading max {0} tweets".format(maxTweets))
-                print("Downloading max {0} tweets".format(maxTweets))
-                with open(fName,'w',encoding='utf-8') as f:
+                self.statusBar().showMessage("Загрузка максимум {0} твитов".format(maxTweets))
+                print("Загрузка максимум {0} твитов".format(maxTweets))
+                with open(fNamePath,'w',encoding='utf-8') as f:
                     writer = csv.writer(f)
                     writer.writerow(["id", "created_at", "text"])
                     while tweetCount < maxTweets:
@@ -253,15 +275,15 @@ class Window(QMainWindow):
                                                             max_id=str(max_id - 1),
                                                             since_id=sinceId)
                             if not new_tweets:
-                                self.statusBar().showMessage("No more tweets found")
-                                print("No more tweets found")
+                                self.statusBar().showMessage("Найти конец")
+                                print("Найти конец")
                                 break
                             for tweet in new_tweets:
                                 writer.writerow([tweet.id, tweet.created_at, tweet.text])
                                 raw_data.append(json.loads(json.dumps(tweet._json)))
                             tweetCount += len(new_tweets)
-                            self.statusBar().showMessage("Downloaded {0} tweets".format(tweetCount))
-                            print("Downloaded {0} tweets".format(tweetCount))
+                            self.statusBar().showMessage("Загрузил {0} твитов".format(tweetCount), 2000)
+                            print("Загрузил {0} твитов".format(tweetCount))
                             max_id = new_tweets[-1].id
                         except tweepy.TweepError as e:
                             # Just exit if any error
